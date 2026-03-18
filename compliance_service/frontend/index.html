@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内容合规检测系统</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: white; padding: 20px 32px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header .subtitle { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+  .badge { background: #e94560; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .card { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 20px; }
+  .card-title { font-size: 15px; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background: #0f3460; border-radius: 2px; }
+  .config-row { display: flex; align-items: center; gap: 12px; }
+  .config-row label { font-size: 13px; color: #666; white-space: nowrap; }
+  .config-row input[type="text"] { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; transition: border-color 0.2s; }
+  .config-row input[type="text"]:focus { outline: none; border-color: #0f3460; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .status-dot.ok { background: #52c41a; box-shadow: 0 0 6px #52c41a; }
+  .status-dot.error { background: #ff4d4f; }
+  .status-dot.loading { background: #faad14; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 14px; font-size: 14px; line-height: 1.7; resize: vertical; min-height: 140px; font-family: inherit; transition: border-color 0.2s; }
+  textarea:focus { outline: none; border-color: #0f3460; }
+  .btn { padding: 10px 28px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: linear-gradient(135deg, #0f3460, #1a5276); color: white; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,52,96,0.3); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: #f5f5f5; color: #555; border: 1px solid #ddd; }
+  .btn-secondary:hover { background: #e8e8e8; }
+  .btn-sm { padding: 5px 14px; font-size: 12px; }
+  .action-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .char-count { font-size: 12px; color: #999; margin-left: auto; }
+  .result-section { display: none; }
+  .result-section.visible { display: block; }
+  .status-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+  .status-bar.processing { background: #fff7e6; border: 1px solid #ffd591; color: #d46b08; }
+  .status-bar.success { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; }
+  .status-bar.error { background: #fff2f0; border: 1px solid #ffccc7; color: #cf1322; }
+  .status-bar.hit { background: #fff1f0; border: 1px solid #ffa39e; color: #cf1322; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .result-grid { grid-template-columns: 1fr; } }
+  .result-box { border: 1px solid #eee; border-radius: 8px; padding: 16px; background: #fafafa; }
+  .result-box-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .result-box-title { font-size: 13px; font-weight: 600; color: #555; }
+  .result-text { font-size: 14px; line-height: 1.8; color: #222; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+  .violation-list { margin-top: 12px; }
+  .violation-tag { display: inline-block; background: #fff1f0; border: 1px solid #ffa39e; color: #cf1322; padding: 3px 10px; border-radius: 12px; font-size: 12px; margin: 3px; }
+  .violation-tag.semantic { background: #fff7e6; border-color: #ffd591; color: #d46b08; }
+  .no-violation { color: #52c41a; font-size: 13px; }
+  .timing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  @media (max-width: 600px) { .timing-grid { grid-template-columns: repeat(2, 1fr); } }
+  .timing-item { text-align: center; background: #f5f7fa; border-radius: 8px; padding: 10px; }
+  .timing-value { font-size: 22px; font-weight: 700; color: #0f3460; }
+  .timing-label { font-size: 11px; color: #888; margin-top: 2px; }
+  .total-timing { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555; margin-top: 12px; }
+  .total-timing strong { color: #0f3460; font-size: 16px; }
+  .spinner { width: 16px; height: 16px; border: 2px solid #ffd591; border-top-color: #d46b08; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .stats-section { display: none; }
+  .stats-section.visible { display: block; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 700px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+  .stat-card { background: #f5f7fa; border-radius: 8px; padding: 14px; text-align: center; }
+  .stat-value { font-size: 28px; font-weight: 700; color: #0f3460; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 4px; }
+  .chart-container { position: relative; height: 180px; margin: 16px 0; }
+  .bar-chart { display: flex; align-items: flex-end; height: 140px; gap: 16px; padding: 0 8px; border-bottom: 2px solid #eee; }
+  .bar-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .bar { width: 100%; border-radius: 4px 4px 0 0; transition: height 0.5s ease; position: relative; min-height: 2px; }
+  .bar-label { font-size: 11px; color: #666; margin-top: 6px; text-align: center; }
+  .bar-val { font-size: 11px; color: #333; font-weight: 600; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+  .config-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .config-table th { text-align: left; padding: 8px 12px; background: #f5f7fa; color: #555; font-weight: 600; border-bottom: 2px solid #eee; }
+  .config-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; color: #333; }
+  .top10-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .top10-item { background: #f0f7ff; border: 1px solid #91caff; border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+  .top10-item .count { color: #1677ff; font-weight: 700; margin-left: 6px; }
+  .footer-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; }
+  .copy-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 20px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999; }
+  .copy-toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>内容合规检测系统</h1>
+    <div class="subtitle">MLOps · bge-m3 嵌入 + Qwen2.5 生成 · Qdrant 向量检索</div>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
+    <div class="status-dot" id="globalStatus"></div>
+    <span id="globalStatusText" style="font-size:13px;opacity:0.8;">检查中...</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 配置区 -->
+  <div class="card">
+    <div class="card-title">服务配置</div>
+    <div class="config-row">
+      <label>API 地址：</label>
+      <input type="text" id="apiUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+      <button class="btn btn-secondary btn-sm" onclick="checkHealth()">检测连接</button>
+      <div class="status-dot" id="connStatus"></div>
+      <span id="connStatusText" style="font-size:12px;color:#999;"></span>
+    </div>
+  </div>
+
+  <!-- 输入区 -->
+  <div class="card">
+    <div class="card-title">文本检测</div>
+    <textarea id="inputText" placeholder="请输入需要检测的文本内容..." oninput="updateCharCount()"></textarea>
+    <div class="action-row">
+      <button class="btn btn-primary" id="submitBtn" onclick="submitText()">开始检测</button>
+      <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+      <span class="char-count" id="charCount">0 字符</span>
+    </div>
+  </div>
+
+  <!-- 结果区 -->
+  <div class="result-section" id="resultSection">
+    <div id="statusBar" class="status-bar processing">
+      <div class="spinner" id="statusSpinner"></div>
+      <span id="statusText">正在处理...</span>
+    </div>
+
+    <div class="card" id="resultCard" style="display:none;">
+      <div class="card-title">检测结果</div>
+
+      <div class="result-grid">
+        <div class="result-box">
+          <div class="result-box-header">
+            <span class="result-box-title">原文</span>
+          </div>
+          <div class="result-text" id="originalText"></div>
+        </div>
+        <div class="result-box">
+          <div class="result-box-header">
+            <span class="result-box-title">改写结果</span>
+            <button class="btn btn-secondary btn-sm" onclick="copyResult()">复制</button>
+          </div>
+          <div class="result-text" id="resultText"></div>
+        </div>
+      </div>
+
+      <div class="violation-list" id="violationList"></div>
+
+      <div class="card-title" style="margin-top:20px;">各阶段耗时</div>
+      <div class="timing-grid">
+        <div class="timing-item">
+          <div class="timing-value" id="t_normalize">-</div>
+          <div class="timing-label">规范化 (ms)</div>
+        </div>
+        <div class="timing-item">
+          <div class="timing-value" id="t_embed">-</div>
+          <div class="timing-label">嵌入 (ms)</div>
+        </div>
+        <div class="timing-item">
+          <div class="timing-value" id="t_detect">-</div>
+          <div class="timing-label">检测 (ms)</div>
+        </div>
+        <div class="timing-item">
+          <div class="timing-value" id="t_rewrite">-</div>
+          <div class="timing-label">改写 (ms)</div>
+        </div>
+      </div>
+      <div class="total-timing">
+        总耗时：<strong id="t_total">-</strong> ms
+        <span id="modelUsed" style="margin-left:16px;color:#999;font-size:12px;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计区 -->
+  <div class="stats-section" id="statsSection">
+    <div class="card">
+      <div class="card-title">统计数据</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat_total">-</div>
+          <div class="stat-label">总请求数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat_hit_rate">-</div>
+          <div class="stat-label">命中率</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat_fallback">-</div>
+          <div class="stat-label">Fallback率</div>
+        </div>
+      </div>
+
+      <div class="card-title">延迟分布 (avg ms)</div>
+      <div class="chart-container">
+        <div class="bar-chart" id="barChart"></div>
+      </div>
+
+      <div class="card-title" style="margin-top:16px;">模型配置</div>
+      <table class="config-table" id="modelTable">
+        <thead><tr><th>项目</th><th>值</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="card-title" style="margin-top:16px;">运行参数</div>
+      <table class="config-table" id="paramTable">
+        <thead><tr><th>参数</th><th>值</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="card-title" style="margin-top:16px;">高频违规词 Top 10</div>
+      <div class="top10-list" id="top10List"></div>
+    </div>
+  </div>
+
+  <div class="footer-actions">
+    <button class="btn btn-secondary" onclick="loadStats()">查看统计</button>
+    <button class="btn btn-secondary" onclick="toggleStats()">收起统计</button>
+  </div>
+
+</div>
+
+<div class="copy-toast" id="copyToast">已复制到剪贴板</div>
+
+<script>
+let statsVisible = false;
+
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getApiUrl() {
+  return document.getElementById('apiUrl').value.replace(/\/$/, '');
+}
+
+function updateCharCount() {
+  const text = document.getElementById('inputText').value;
+  document.getElementById('charCount').textContent = text.length + ' 字符';
+}
+
+async function checkHealth() {
+  const dot = document.getElementById('connStatus');
+  const txt = document.getElementById('connStatusText');
+  const gDot = document.getElementById('globalStatus');
+  const gTxt = document.getElementById('globalStatusText');
+  dot.className = 'status-dot loading';
+  txt.textContent = '检测中...';
+  try {
+    const resp = await fetch(getApiUrl() + '/health', { signal: AbortSignal.timeout(5000) });
+    if (resp.ok) {
+      const data = await resp.json();
+      dot.className = 'status-dot ok';
+      gDot.className = 'status-dot ok';
+      txt.textContent = `已连接 | Qdrant: ${data.qdrant} | 敏感词: ${data.automaton_words}`;
+      gTxt.textContent = '服务正常';
+    } else {
+      throw new Error('HTTP ' + resp.status);
+    }
+  } catch (e) {
+    dot.className = 'status-dot error';
+    gDot.className = 'status-dot error';
+    txt.textContent = '连接失败: ' + e.message;
+    gTxt.textContent = '服务异常';
+  }
+}
+
+async function submitText() {
+  const text = document.getElementById('inputText').value.trim();
+  if (!text) { alert('请输入文本'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+
+  const rs = document.getElementById('resultSection');
+  rs.className = 'result-section visible';
+
+  const sb = document.getElementById('statusBar');
+  sb.className = 'status-bar processing';
+  document.getElementById('statusSpinner').style.display = 'block';
+  document.getElementById('statusText').textContent = '正在处理...';
+  document.getElementById('resultCard').style.display = 'none';
+
+  try {
+    const resp = await fetch(getApiUrl() + '/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, request_id: 'ui_' + Date.now() }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    showResult(text, data);
+  } catch (e) {
+    sb.className = 'status-bar error';
+    document.getElementById('statusSpinner').style.display = 'none';
+    document.getElementById('statusText').textContent = '请求失败: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showResult(original, data) {
+  const sb = document.getElementById('statusBar');
+  document.getElementById('statusSpinner').style.display = 'none';
+
+  if (data.hit) {
+    sb.className = 'status-bar hit';
+    document.getElementById('statusText').textContent =
+      `检测到 ${data.violations.length} 个违规词，已改写`;
+  } else {
+    sb.className = 'status-bar success';
+    document.getElementById('statusText').textContent = '检测完成，内容合规';
+  }
+
+  document.getElementById('originalText').textContent = original;
+  document.getElementById('resultText').textContent = data.result;
+
+  // Violations
+  const vl = document.getElementById('violationList');
+  if (data.violations && data.violations.length > 0) {
+    vl.innerHTML = '<div style="font-size:13px;font-weight:600;color:#555;margin-bottom:6px;">违规词：</div>' +
+      data.violations.map(v => {
+        const cls = v.reason && v.reason.includes('语义') ? 'violation-tag semantic' : 'violation-tag';
+        return `<span class="${cls}">${escHtml(v.word)} <small>${escHtml(v.reason)}</small></span>`;
+      }).join('');
+  } else {
+    vl.innerHTML = '<div class="no-violation">✓ 未发现违规词</div>';
+  }
+
+  // Timings
+  const d = data.latency_detail || {};
+  document.getElementById('t_normalize').textContent = d.normalize_ms ?? '-';
+  document.getElementById('t_embed').textContent = d.embed_ms ?? '-';
+  document.getElementById('t_detect').textContent = d.detect_ms ?? '-';
+  document.getElementById('t_rewrite').textContent = d.rewrite_ms ?? '-';
+  document.getElementById('t_total').textContent = data.latency_ms ?? '-';
+
+  const mu = data.model_used || '';
+  const fb = data.used_fallback ? ' [fallback]' : '';
+  document.getElementById('modelUsed').textContent = mu ? `模型: ${mu}${fb}` : '';
+
+  document.getElementById('resultCard').style.display = 'block';
+}
+
+function copyResult() {
+  const text = document.getElementById('resultText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById('copyToast');
+    toast.className = 'copy-toast show';
+    setTimeout(() => { toast.className = 'copy-toast'; }, 2000);
+  });
+}
+
+function clearAll() {
+  document.getElementById('inputText').value = '';
+  document.getElementById('resultSection').className = 'result-section';
+  document.getElementById('charCount').textContent = '0 字符';
+}
+
+async function loadStats() {
+  try {
+    const resp = await fetch(getApiUrl() + '/stats', { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.error) { alert(data.error); return; }
+    renderStats(data);
+    document.getElementById('statsSection').className = 'stats-section visible';
+    statsVisible = true;
+    document.getElementById('statsSection').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    alert('获取统计数据失败: ' + e.message);
+  }
+}
+
+function toggleStats() {
+  const s = document.getElementById('statsSection');
+  if (statsVisible) {
+    s.className = 'stats-section';
+    statsVisible = false;
+  } else {
+    loadStats();
+  }
+}
+
+function renderStats(data) {
+  document.getElementById('stat_total').textContent = data.total_requests;
+  document.getElementById('stat_hit_rate').textContent = (data.hit_rate * 100).toFixed(1) + '%';
+  document.getElementById('stat_fallback').textContent = (data.fallback_rate * 100).toFixed(1) + '%';
+
+  // Bar chart
+  const lat = data.latency || {};
+  const stages = [
+    { label: '规范化', color: '#52c41a', val: lat.normalize?.avg || 0 },
+    { label: '嵌入', color: '#1677ff', val: lat.embed?.avg || 0 },
+    { label: '检测', color: '#722ed1', val: lat.detect?.avg || 0 },
+    { label: '改写', color: '#e94560', val: lat.rewrite?.avg || 0 },
+    { label: '总计', color: '#0f3460', val: lat.total?.avg || 0 },
+  ];
+  const maxVal = Math.max(...stages.map(s => s.val), 1);
+  const chart = document.getElementById('barChart');
+  chart.innerHTML = stages.map(s => {
+    const h = Math.max(Math.round((s.val / maxVal) * 120), 2);
+    return `<div class="bar-wrap">
+      <div class="bar" style="height:${h}px;background:${s.color};">
+        <span class="bar-val">${s.val}</span>
+      </div>
+      <div class="bar-label">${s.label}</div>
+    </div>`;
+  }).join('');
+
+  // Model table
+  const models = data.models || {};
+  const modelRows = [
+    ['嵌入模型', models.embed_model],
+    ['嵌入服务', models.embed_base_url],
+    ['主模型', models.primary_model],
+    ['主服务', models.primary_base_url],
+    ['备用模型', models.fallback_model],
+  ];
+  document.querySelector('#modelTable tbody').innerHTML =
+    modelRows.map(([k, v]) => `<tr><td>${escHtml(k)}</td><td style="font-family:monospace;font-size:12px;">${escHtml(v || '-')}</td></tr>`).join('');
+
+  // Param table
+  const cfg = data.current_config || {};
+  const paramRows = [
+    ['temperature', cfg.temperature],
+    ['top_p', cfg.top_p],
+    ['max_tokens', cfg.max_tokens],
+    ['llm_timeout (s)', cfg.llm_timeout],
+    ['sensitive_threshold', cfg.sensitive_threshold],
+    ['rules_threshold', cfg.rules_threshold],
+    ['sensitive_topk', cfg.sensitive_topk],
+    ['rules_topk', cfg.rules_topk],
+  ];
+  document.querySelector('#paramTable tbody').innerHTML =
+    paramRows.map(([k, v]) => `<tr><td>${escHtml(k)}</td><td>${escHtml(v ?? '-')}</td></tr>`).join('');
+
+  // Top 10
+  const top10 = data.violations_top10 || [];
+  document.getElementById('top10List').innerHTML = top10.length
+    ? top10.map(item => `<div class="top10-item">${escHtml(item.word)}<span class="count">${escHtml(item.count)}</span></div>`).join('')
+    : '<span style="color:#999;font-size:13px;">暂无数据</span>';
+}
+
+// Auto check health on load
+window.addEventListener('load', () => {
+  checkHealth();
+  updateCharCount();
+});
+
+// Enter key to submit
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') submitText();
+});
+</script>
+</body>
+</html>
