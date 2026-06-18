@@ -31,6 +31,12 @@ LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30.0"))
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "") or None
 REDIS_ENABLED = os.getenv("REDIS_ENABLED", "false").lower() == "true"
+# 缓存 key 统一前缀，便于运维区分与批量清理
+REDIS_KEY_PREFIX = os.getenv("REDIS_KEY_PREFIX", "rewrite_strategy:")
+# 改写策略缓存的过期时间，默认 7 天（单位：秒）
+REDIS_TTL_SECONDS = int(os.getenv("REDIS_TTL_SECONDS", str(7 * 24 * 3600)))
 
 LOG_DIR = os.getenv("LOG_DIR", "logs")

@@ -15,10 +15,17 @@ def build_automaton(words: list[str]) -> None:
     global _automaton
     from normalizer import normalize
     A = ahocorasick.Automaton()
+    added = 0
     for idx, word in enumerate(words):
         normed = normalize(word)
         if len(normed) >= 2:          # 过滤归一化后长度不足的词
             A.add_word(normed, (idx, normed))
+            added += 1
+    if added == 0:
+        # 没有任何有效词：不调用 make_automaton（空 trie 调用后仍是 trie 状态，
+        # iter 会抛 AttributeError）。直接置空，让 exact_match 走"无自动机"分支返回 []。
+        _automaton = None
+        return
     A.make_automaton()
     _automaton = A
 

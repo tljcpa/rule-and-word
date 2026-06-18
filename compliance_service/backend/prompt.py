@@ -21,10 +21,15 @@ def build_prompt(
 
     strategy_section = ""
     if cached_strategy:
-        s_lines = "\n".join(
-            f"- {word} → 建议替换为：{suggestion}"
-            for word, suggestion in cached_strategy.items()
-        )
+        # 缓存命中时存的是历史改写全文（{"result": "..."}）；
+        # 兼容早期的 {word: suggestion} 词级映射格式。
+        if "result" in cached_strategy:
+            s_lines = cached_strategy["result"]
+        else:
+            s_lines = "\n".join(
+                f"- {word} → 建议替换为：{suggestion}"
+                for word, suggestion in cached_strategy.items()
+            )
         strategy_section = f"""
 【历史改写参考】（仅供参考，请结合上下文判断是否采用）
 {s_lines}
