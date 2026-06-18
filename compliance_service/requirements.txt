@@ -11,3 +11,8 @@ pyahocorasick>=2.0.0
 pandas>=2.0.0
 openpyxl>=3.1.0
 numpy>=1.24.0
+redis>=5.0.0
+# 以下为测试依赖（CPU 单测用，不进生产链路）
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+fakeredis>=2.20.0
